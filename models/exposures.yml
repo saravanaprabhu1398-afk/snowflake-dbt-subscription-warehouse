@@ -1,0 +1,40 @@
+version: 2
+
+exposures:
+  - name: subscription_health_dashboard
+    label: Subscription Health dashboard
+    type: dashboard
+    maturity: medium
+    description: Weekly exec view of active subscribers, logo churn, trial conversion and cohort retention.
+    depends_on:
+      - ref('mart_subscription_monthly')
+      - ref('mart_cohort_retention')
+      - ref('mart_acquisition_cohorts')
+    owner:
+      name: Subscription Analytics
+      email: subscription-analytics@example.com
+
+  - name: cohort_ltv_finance_model
+    label: Cohort LTV finance model
+    type: analysis
+    maturity: medium
+    description: Finance uses realised cohort LTV against CAC by channel to set acquisition budgets.
+    depends_on:
+      - ref('mart_cohort_ltv')
+      - ref('mart_acquisition_cohorts')
+      - ref('fct_payments')
+    owner:
+      name: FP&A
+      email: fpa@example.com
+
+  - name: feature_adoption_product_review
+    label: Feature adoption product review
+    type: notebook
+    maturity: low
+    description: Product managers review which features correlate with lower churn to prioritise onboarding nudges.
+    depends_on:
+      - ref('mart_feature_usage_monthly')
+      - ref('mart_feature_engagement_churn')
+    owner:
+      name: Product Analytics
+      email: product-analytics@example.com

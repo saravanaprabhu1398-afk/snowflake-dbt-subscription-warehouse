@@ -1,0 +1,44 @@
+version: 2
+
+models:
+  - name: mart_acquisition_cohorts
+    description: Customers acquired per month, channel and UTM source, with trial conversion and first-month revenue.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments: {combination_of_columns: ['acquisition_month', 'acquisition_channel', 'acquisition_utm_source']}
+    columns:
+      - name: trial_conversion_rate
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments: {min_value: 0, max_value: 1}
+
+  - name: mart_cohort_retention
+    description: Paid-cohort retention triangle. churn_rate = 1 - retention_rate.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments: {combination_of_columns: ['cohort_month', 'months_since_acquisition']}
+    columns:
+      - name: retention_rate
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments: {min_value: 0, max_value: 1}
+
+  - name: mart_cohort_ltv
+    description: Realised cohort LTV = cumulative net revenue (USD) / cohort size, by months since acquisition.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments: {combination_of_columns: ['cohort_month', 'months_since_acquisition']}
+    columns:
+      - name: ltv_usd
+        data_tests: [not_null]
+
+  - name: mart_subscription_monthly
+    description: Monthly active paying customers, new/returning, churned and logo churn rate.
+    columns:
+      - name: month_start
+        data_tests: [unique, not_null]
+      - name: logo_churn_rate
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments: {min_value: 0, max_value: 1}

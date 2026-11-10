@@ -1,0 +1,13 @@
+snapshots:
+  - name: snap_customers
+    description: >
+      SCD Type 2 history of customer profiles (email, name, country, marketing consent).
+      Feeds dim_customer. A post-hook scrubs PII from every version of erased customers.
+    relation: ref('stg_customers')
+    config:
+      schema: snapshots
+      unique_key: customer_id
+      strategy: timestamp
+      updated_at: updated_at
+      hard_deletes: ignore
+      post_hook: "{{ scrub_erased_customers(this) }}"

@@ -1,0 +1,57 @@
+name: subscription_warehouse
+version: "1.0.0"
+config-version: 2
+profile: subscription_warehouse
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+test-paths: ["tests"]
+snapshot-paths: ["snapshots"]
+macro-paths: ["macros"]
+clean-targets: ["target", "dbt_packages", "logs"]
+
+vars:
+  # Root of the landing zone. Local: parquet files written by generator/generate.py.
+  # Could equally be s3://<bucket>/landing with DuckDB's httpfs extension.
+  landing_path: "data/landing"
+  # Process only landing partitions up to this date (replays loads one at a time).
+  as_of_load_date: "9999-12-31"
+  # Incremental models re-scan this many days of landing partitions to catch late data.
+  incremental_lookback_days: 3
+
+# Snowflake-only configs (cluster_by, snowflake_warehouse, query_tag, copy_grants) are
+# ignored by dbt-duckdb, so one project serves both targets.
+models:
+  subscription_warehouse:
+    +persist_docs: {relation: true, columns: true}
+    staging:
+      +materialized: view
+      +schema: staging
+    intermediate:
+      +materialized: ephemeral
+      +schema: intermediate
+    marts:
+      +materialized: table
+      +copy_grants: true
+      core:
+        +schema: core
+      subscription:
+        +schema: subscription
+        +snowflake_warehouse: "{{ 'TRANSFORM_WH_M' if target.name == 'prod' else none }}"
+      product:
+        +schema: product
+
+snapshots:
+  subscription_warehouse:
+    +target_schema: snapshots
+
+seeds:
+  subscription_warehouse:
+    +schema: reference
+
+query-comment:
+  comment: "{{ query_comment(node) }}"
+  append: true
+
+on-run-start:
+  - "{{ set_query_tag_for_run() }}"

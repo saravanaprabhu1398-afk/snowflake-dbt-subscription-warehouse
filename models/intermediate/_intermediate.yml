@@ -1,0 +1,57 @@
+version: 2
+
+models:
+  - name: int_payments_usd
+    description: Payments with USD amounts; net_revenue_usd is 0 for failed attempts and negative for refunds.
+  - name: int_subscriptions
+    description: One row per subscription with acquisition attribution, status and paid-access window.
+    columns:
+      - name: subscription_id
+        data_tests: [unique, not_null]
+      - name: subscription_status
+        data_tests:
+          - accepted_values:
+              arguments: {values: ['in_trial', 'trial_expired', 'active', 'cancelled']}
+  - name: int_customer_months
+    description: Customer x month grid from paid cohort month to last month of data, with activity flag and net revenue.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments: {combination_of_columns: ['customer_id', 'month_start']}
+    columns:
+      - name: months_since_acquisition
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments: {min_value: 0}
+
+unit_tests:
+  - name: retention_counts_active_customers_per_cohort_month
+    description: Two-customer cohort; one churns after month 1 -> retention 1.0, 1.0, 0.5 and churn = 1 - retention.
+    model: mart_cohort_retention
+    given:
+      - input: ref('int_customer_months')
+        rows:
+          - {customer_id: A, cohort_month: 2025-01-01, month_start: 2025-01-01, months_since_acquisition: 0, is_active: true, net_revenue_usd: 10}
+          - {customer_id: B, cohort_month: 2025-01-01, month_start: 2025-01-01, months_since_acquisition: 0, is_active: true, net_revenue_usd: 10}
+          - {customer_id: A, cohort_month: 2025-01-01, month_start: 2025-02-01, months_since_acquisition: 1, is_active: true, net_revenue_usd: 10}
+          - {customer_id: B, cohort_month: 2025-01-01, month_start: 2025-02-01, months_since_acquisition: 1, is_active: true, net_revenue_usd: 10}
+          - {customer_id: A, cohort_month: 2025-01-01, month_start: 2025-03-01, months_since_acquisition: 2, is_active: true, net_revenue_usd: 10}
+          - {customer_id: B, cohort_month: 2025-01-01, month_start: 2025-03-01, months_since_acquisition: 2, is_active: false, net_revenue_usd: 0}
+    expect:
+      rows:
+        - {cohort_month: 2025-01-01, months_since_acquisition: 0, cohort_size: 2, active_customers: 2, retention_rate: 1.0, churn_rate: 0.0}
+        - {cohort_month: 2025-01-01, months_since_acquisition: 1, cohort_size: 2, active_customers: 2, retention_rate: 1.0, churn_rate: 0.0}
+        - {cohort_month: 2025-01-01, months_since_acquisition: 2, cohort_size: 2, active_customers: 1, retention_rate: 0.5, churn_rate: 0.5}
+
+  - name: ltv_is_cumulative_revenue_over_cohort_size
+    model: mart_cohort_ltv
+    given:
+      - input: ref('int_customer_months')
+        rows:
+          - {customer_id: A, cohort_month: 2025-01-01, month_start: 2025-01-01, months_since_acquisition: 0, is_active: true, net_revenue_usd: 10}
+          - {customer_id: B, cohort_month: 2025-01-01, month_start: 2025-01-01, months_since_acquisition: 0, is_active: true, net_revenue_usd: 30}
+          - {customer_id: A, cohort_month: 2025-01-01, month_start: 2025-02-01, months_since_acquisition: 1, is_active: true, net_revenue_usd: 10}
+          - {customer_id: B, cohort_month: 2025-01-01, month_start: 2025-02-01, months_since_acquisition: 1, is_active: false, net_revenue_usd: 0}
+    expect:
+      rows:
+        - {cohort_month: 2025-01-01, months_since_acquisition: 0, cohort_size: 2, net_revenue_usd: 40, cumulative_net_revenue_usd: 40, ltv_usd: 20}
+        - {cohort_month: 2025-01-01, months_since_acquisition: 1, cohort_size: 2, net_revenue_usd: 10, cumulative_net_revenue_usd: 50, ltv_usd: 25}

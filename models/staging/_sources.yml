@@ -1,0 +1,43 @@
+version: 2
+
+# Snowflake: RAW.LANDING.* tables loaded by Snowpipe (see snowflake/02_ingestion.sql).
+# DuckDB:    the same parquet files read straight from the landing folder via external_location.
+sources:
+  - name: landing
+    database: "{{ 'RAW' if target.type == 'snowflake' else target.database }}"
+    schema: landing
+    loader: snowpipe
+    config:
+      loaded_at_field: "cast(_loaded_at as timestamp)"
+      freshness:
+        warn_after: {count: 24, period: hour}
+        error_after: {count: 48, period: hour}
+    meta:
+      external_location: "read_parquet('{{ var('landing_path') }}/{name}/*/*.parquet', union_by_name = true)"
+    tables:
+      - name: customers
+        description: Customer profile CDC feed from the account service. Contains PII.
+        columns:
+          - name: customer_id
+            data_tests: [not_null]
+      - name: plans
+        description: Plan catalogue from the billing service.
+        config:
+          freshness: null   # reference data, changes rarely
+      - name: subscription_events
+        description: Subscription lifecycle events (trial, start, renewal, upgrade, downgrade, cancel).
+        columns:
+          - name: event_id
+            data_tests: [not_null]
+      - name: payments
+        description: >
+          Charges and refunds from the payment service provider. Holds only a PSP token,
+          card brand and last-4 digits; no PAN, CVV or expiry ever lands here (PCI-DSS scope reduction).
+        columns:
+          - name: payment_id
+            data_tests: [not_null]
+      - name: feature_usage
+        description: App telemetry, one row per feature interaction.
+        columns:
+          - name: usage_event_id
+            data_tests: [not_null]

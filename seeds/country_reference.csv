@@ -1,0 +1,15 @@
+country_code,country_name,region,is_eu,is_gdpr_scope
+US,United States,NA,false,false
+CA,Canada,NA,false,false
+GB,United Kingdom,EMEA,false,true
+DE,Germany,EMEA,true,true
+FR,France,EMEA,true,true
+NL,Netherlands,EMEA,true,true
+ES,Spain,EMEA,true,true
+IT,Italy,EMEA,true,true
+IE,Ireland,EMEA,true,true
+SE,Sweden,EMEA,true,true
+IN,India,APAC,false,false
+JP,Japan,APAC,false,false
+AU,Australia,APAC,false,false
+BR,Brazil,LATAM,false,false

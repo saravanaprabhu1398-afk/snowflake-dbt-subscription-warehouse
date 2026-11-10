@@ -1,0 +1,19 @@
+version: 2
+
+models:
+  - name: mart_feature_usage_monthly
+    description: Feature adoption and volume per month and plan tier.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments: {combination_of_columns: ['usage_month', 'feature', 'tier']}
+    columns:
+      - name: adoption_rate
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments: {min_value: 0, max_value: 1}
+
+  - name: mart_feature_engagement_churn
+    description: 6-month churn rate of paid customers split by whether they used each feature in their first 30 paid days.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments: {combination_of_columns: ['feature', 'used_in_first_30d']}

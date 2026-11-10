@@ -1,0 +1,15 @@
+.venv/
+target/
+dbt_packages/
+logs/
+data/
+*.duckdb
+*.duckdb.wal
+.user.yml
+terraform/.terraform/
+terraform/*.tfstate*
+terraform/*.tfvars
+!terraform/example.tfvars
+.DS_Store
+__pycache__/
+*.p8

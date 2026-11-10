@@ -1,0 +1,4 @@
+customer_id,requested_at,request_source
+C0000042,2025-10-15 09:12:00,privacy_portal
+C0000777,2025-10-20 14:30:00,support_ticket
+C0012345,2025-10-28 11:05:00,privacy_portal

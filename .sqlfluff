@@ -1,0 +1,35 @@
+[sqlfluff]
+templater = dbt
+dialect = snowflake
+max_line_length = 120
+# Layout and capitalisation rules enforced; a few stylistic rules relaxed.
+exclude_rules = ST06, AM04, AM06, RF04, ST05, ST09
+large_file_skip_byte_limit = 40000
+
+[sqlfluff:templater:dbt]
+project_dir = .
+profiles_dir = .
+profile = subscription_warehouse
+target = dev
+
+[sqlfluff:indentation]
+tab_space_size = 4
+indent_unit = space
+implicit_indents = allow
+
+[sqlfluff:rules:capitalisation.keywords]
+capitalisation_policy = lower
+[sqlfluff:rules:capitalisation.identifiers]
+extended_capitalisation_policy = lower
+[sqlfluff:rules:capitalisation.functions]
+extended_capitalisation_policy = lower
+[sqlfluff:rules:capitalisation.literals]
+capitalisation_policy = lower
+[sqlfluff:rules:capitalisation.types]
+extended_capitalisation_policy = lower
+[sqlfluff:rules:aliasing.table]
+aliasing = explicit
+[sqlfluff:rules:aliasing.column]
+aliasing = explicit
+[sqlfluff:rules:ambiguous.column_references]
+group_by_and_order_by_style = consistent

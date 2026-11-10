@@ -1,0 +1,114 @@
+version: 2
+
+models:
+  - name: dim_date
+    description: Calendar dimension 2023-01-01 .. 2026-12-31. Key is yyyymmdd integer.
+    columns:
+      - name: date_key
+        data_tests: [unique, not_null]
+      - name: date_day
+        data_tests: [unique, not_null]
+      - name: iso_day_of_week
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments: {min_value: 1, max_value: 7}
+
+  - name: dim_plan
+    description: Subscription plan dimension (Type 1; plans are versioned by new plan_id, not edited).
+    columns:
+      - name: plan_key
+        data_tests: [unique, not_null]
+      - name: tier
+        data_tests:
+          - accepted_values:
+              arguments: {values: ['basic', 'plus', 'ultimate', 'family']}
+
+  - name: dim_customer
+    description: >
+      SCD Type 2 customer dimension from snap_customers. One row per customer version;
+      join facts on customer_sk (resolved point-in-time at load) or on customer_id + is_current.
+      PII columns are masked in Snowflake by tag-based masking policies; rows are filtered by the
+      customer_region_rap row access policy (EU rows only for EU-cleared roles).
+    config:
+      contract: {enforced: false}
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments: {combination_of_columns: ['customer_id', 'valid_from']}
+    columns:
+      - name: customer_sk
+        description: Surrogate key (snapshot scd id), one per customer version.
+        data_tests: [unique, not_null]
+      - name: customer_id
+        data_tests: [not_null]
+      - name: email
+        meta: {pii_type: email, masking_policy: mask_email}
+      - name: first_name
+        meta: {pii_type: name, masking_policy: mask_pii_string}
+      - name: last_name
+        meta: {pii_type: name, masking_policy: mask_pii_string}
+      - name: phone
+        meta: {pii_type: phone, masking_policy: mask_pii_string}
+      - name: country_code
+        data_tests: [not_null]
+      - name: is_current
+        data_tests: [not_null]
+
+  - name: fct_subscription_events
+    description: Transaction fact, one row per subscription lifecycle event. Incremental MERGE on event_id.
+    columns:
+      - name: event_id
+        data_tests: [unique, not_null]
+      - name: customer_sk
+        data_tests:
+          - not_null
+          - relationships:
+              arguments: {to: ref('dim_customer'), field: customer_sk}
+      - name: plan_key
+        data_tests:
+          - relationships:
+              arguments: {to: ref('dim_plan'), field: plan_key}
+      - name: event_date_key
+        data_tests:
+          - relationships:
+              arguments: {to: ref('dim_date'), field: date_key}
+
+  - name: fct_payments
+    description: Transaction fact, one row per charge/refund attempt. Incremental MERGE on payment_id.
+    columns:
+      - name: payment_id
+        data_tests: [unique, not_null]
+      - name: customer_sk
+        data_tests:
+          - not_null
+          - relationships:
+              arguments: {to: ref('dim_customer'), field: customer_sk}
+      - name: plan_key
+        data_tests:
+          - relationships:
+              arguments: {to: ref('dim_plan'), field: plan_key}
+      - name: payment_date_key
+        data_tests:
+          - relationships:
+              arguments: {to: ref('dim_date'), field: date_key}
+      - name: amount_usd
+        data_tests: [not_null]
+
+  - name: fct_feature_usage
+    description: Transaction fact, one row per feature interaction. Incremental MERGE on usage_event_id; clustered by event_date, feature.
+    columns:
+      - name: usage_event_id
+        data_tests: [unique, not_null]
+      - name: customer_sk
+        data_tests:
+          - not_null
+          - relationships:
+              arguments: {to: ref('dim_customer'), field: customer_sk}
+      - name: event_date_key
+        data_tests:
+          - relationships:
+              arguments: {to: ref('dim_date'), field: date_key}
+      - name: feature
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['malware_scan', 'web_protection_block', 'firewall_alert', 'vpn_connect', 'password_vault_open', 'dark_web_monitor_check', 'identity_alert_view', 'parental_control_rule']

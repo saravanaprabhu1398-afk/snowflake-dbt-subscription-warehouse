@@ -1,0 +1,29 @@
+version: 2
+seeds:
+  - name: country_reference
+    description: Country to region / EU / GDPR-scope mapping. Drives the row access policy in Snowflake.
+    config:
+      column_types: {is_eu: boolean, is_gdpr_scope: boolean}
+    columns:
+      - name: country_code
+        data_tests: [unique, not_null]
+  - name: fx_rates
+    description: Static FX rates used to report revenue in USD (a real deployment would load daily rates).
+    columns:
+      - name: currency
+        data_tests: [unique, not_null]
+      - name: usd_per_unit
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments: {min_value: 0, inclusive: false}
+  - name: gdpr_erasure_requests
+    description: >
+      Right-to-erasure (GDPR Art. 17) requests. Staging anonymises these customers on every
+      build, so a full refresh can never bring their PII back. In Snowflake the
+      GOVERNANCE.ERASE_CUSTOMER procedure also scrubs raw tables and snapshot history.
+    config:
+      column_types: {requested_at: timestamp}
+    columns:
+      - name: customer_id
+        data_tests: [unique, not_null]

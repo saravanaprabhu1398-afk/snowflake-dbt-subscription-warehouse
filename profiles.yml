@@ -1,0 +1,37 @@
+# No secrets in this file: Snowflake credentials come from environment variables.
+subscription_warehouse:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: "data/warehouse.duckdb"
+      threads: 4
+    ci:
+      type: duckdb
+      path: "data/ci.duckdb"
+      threads: 4
+    snowflake:
+      type: snowflake
+      account: "{{ env_var('SNOWFLAKE_ACCOUNT', 'not-set') }}"
+      user: "{{ env_var('SNOWFLAKE_USER', 'not-set') }}"
+      authenticator: snowflake_jwt
+      private_key_path: "{{ env_var('SNOWFLAKE_PRIVATE_KEY_PATH', '') }}"
+      role: TRANSFORMER
+      database: ANALYTICS
+      warehouse: TRANSFORM_WH_S
+      schema: "dbt_{{ env_var('USER', 'dev') }}"
+      threads: 8
+      query_tag: "dbt_subscription_warehouse"
+      reuse_connections: true
+    prod:
+      type: snowflake
+      account: "{{ env_var('SNOWFLAKE_ACCOUNT', 'not-set') }}"
+      user: "{{ env_var('SNOWFLAKE_USER', 'not-set') }}"
+      authenticator: snowflake_jwt
+      private_key_path: "{{ env_var('SNOWFLAKE_PRIVATE_KEY_PATH', '') }}"
+      role: TRANSFORMER
+      database: ANALYTICS
+      warehouse: TRANSFORM_WH_S
+      schema: prod
+      threads: 8
+      query_tag: "dbt_subscription_warehouse"
