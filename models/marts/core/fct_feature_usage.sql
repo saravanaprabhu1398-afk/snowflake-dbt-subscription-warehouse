@@ -11,8 +11,7 @@
 -- so date-bounded and per-feature queries prune micro-partitions.
 with usage as (
     select * from {{ ref('stg_feature_usage') }}
-    where 1 = 1
-        {{ incremental_load_filter() }}
+    where 1 = 1 {{ incremental_load_filter() }}
 ),
 
 customers as (

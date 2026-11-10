@@ -9,8 +9,7 @@
 -- Grain: one row per subscription lifecycle event.
 with events as (
     select * from {{ ref('stg_subscription_events') }}
-    where 1 = 1
-        {{ incremental_load_filter() }}
+    where 1 = 1 {{ incremental_load_filter() }}
 ),
 
 customers as (

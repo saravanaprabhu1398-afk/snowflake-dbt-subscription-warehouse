@@ -9,8 +9,7 @@
 -- Grain: one row per payment attempt (charge or refund). Amounts in local currency and USD.
 with payments as (
     select * from {{ ref('int_payments_usd') }}
-    where 1 = 1
-        {{ incremental_load_filter() }}
+    where 1 = 1 {{ incremental_load_filter() }}
 ),
 
 customers as (
