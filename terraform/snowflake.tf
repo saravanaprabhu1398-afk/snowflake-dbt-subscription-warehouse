@@ -382,6 +382,7 @@ resource "snowflake_pipe" "feed" {
   schema      = local.sch_land
   auto_ingest = true
   comment     = "Auto-ingest ${each.key} from S3"
+  depends_on  = [time_sleep.iam_propagation]
   # include_metadata targets must be the exact (upper-case) column names.
   copy_statement = <<-SQL
     copy into ${local.db_raw}.${local.sch_land}.${snowflake_table.raw[each.key].name}

@@ -11,12 +11,21 @@ union all
 select 'feature_usage', _load_date, count(*), max(_ingested_at) from raw.landing.feature_usage group by 1, 2
 order by 1, 2;
 
-select
-    pipe_name,
-    parse_json(system$pipe_status(pipe_catalog || '.' || pipe_schema || '.' || pipe_name)):executionState::varchar as state,
-    parse_json(system$pipe_status(pipe_catalog || '.' || pipe_schema || '.' || pipe_name)):pendingFileCount::int as pending_files
-from raw.information_schema.pipes
-order by 1;
+-- SYSTEM$PIPE_STATUS needs a literal pipe name, so one row per pipe.
+select 'customers' as pipe, parse_json(system$pipe_status('raw.landing.pipe_customers')):executionState::varchar as state,
+    parse_json(system$pipe_status('raw.landing.pipe_customers')):pendingFileCount::int as pending_files
+union all
+select 'plans' as pipe, parse_json(system$pipe_status('raw.landing.pipe_plans')):executionState::varchar as state,
+    parse_json(system$pipe_status('raw.landing.pipe_plans')):pendingFileCount::int as pending_files
+union all
+select 'subscription_events' as pipe, parse_json(system$pipe_status('raw.landing.pipe_subscription_events')):executionState::varchar as state,
+    parse_json(system$pipe_status('raw.landing.pipe_subscription_events')):pendingFileCount::int as pending_files
+union all
+select 'payments' as pipe, parse_json(system$pipe_status('raw.landing.pipe_payments')):executionState::varchar as state,
+    parse_json(system$pipe_status('raw.landing.pipe_payments')):pendingFileCount::int as pending_files
+union all
+select 'feature_usage' as pipe, parse_json(system$pipe_status('raw.landing.pipe_feature_usage')):executionState::varchar as state,
+    parse_json(system$pipe_status('raw.landing.pipe_feature_usage')):pendingFileCount::int as pending_files;
 
 -- Files that failed or partially loaded in the last day (on_error = skip_file).
 select table_name, file_name, status, first_error_message

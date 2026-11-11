@@ -124,6 +124,16 @@ data "aws_iam_policy_document" "landing_read" {
   }
 }
 
+# IAM is eventually consistent: Snowflake validates the role when a pipe is created, which
+# fails if it runs seconds after the role/policy exist. Wait once before creating pipes.
+resource "time_sleep" "iam_propagation" {
+  create_duration = "30s"
+  triggers = {
+    role   = aws_iam_role.snowflake_landing_reader.arn
+    policy = aws_iam_role_policy.landing_read.id
+  }
+}
+
 resource "aws_iam_role_policy" "landing_read" {
   name   = "snowflake-landing-read"
   role   = aws_iam_role.snowflake_landing_reader.id

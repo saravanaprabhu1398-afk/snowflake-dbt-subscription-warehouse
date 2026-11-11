@@ -5,6 +5,10 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
+    time = {
+      source  = "hashicorp/time"
+      version = "~> 0.12"
+    }
     snowflake = {
       source  = "snowflakedb/snowflake"
       version = "~> 2.0"
@@ -36,10 +40,7 @@ provider "aws" {
 # `make tf-plan` / `make tf-apply` export these from the variables in docs/snowflake-deployment.md.
 locals {
   snowflake_preview_features = [
-    "snowflake_stage_external_s3_resource",
     "snowflake_pipe_resource",
-    "snowflake_storage_integration_aws_resource",
-    "snowflake_file_format_parquet_resource",
     "snowflake_table_resource",
   ]
 }

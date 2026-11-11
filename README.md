@@ -9,10 +9,9 @@ adoption), Snowflake tuning and cost controls, and GDPR/PCI-DSS governance.
 The whole dbt project also runs locally and in CI on **DuckDB**, so you can clone and build it
 without a Snowflake account.
 
-> **Scope.** Personal portfolio project on synthetic data. The dbt project, tests and
-> benchmarks run locally on DuckDB (numbers below). The Snowflake SQL (`snowflake/`) and
-> Terraform (`terraform/`) are code only: Terraform passes `terraform validate`, but neither
-> has been applied to a real Snowflake or AWS account.
+> **Scope.** Personal portfolio project on synthetic data. It runs in two places: locally on
+> DuckDB (benchmarks below) and deployed to a Snowflake Enterprise trial account with an AWS
+> S3 landing zone, provisioned by the Terraform in this repo ([Snowflake results](#snowflake-results)).
 
 ## Architecture
 
@@ -148,10 +147,45 @@ marts compute sensible shapes.
 
 The jump at month 12 is annual plans renewing.
 
+## Snowflake results
+
+Deployed on 2026-11-11 to a Snowflake Enterprise trial account (AWS `ap-south-1`) with the
+[runbook](docs/snowflake-deployment.md): `terraform apply` (75 resources across AWS and
+Snowflake), governance SQL, then the same two-load replay as locally, but through S3 and
+auto-ingest Snowpipe. All warehouses XSMALL; dbt-core 1.12, dbt-snowflake 1.12.
+
+| | Load 1 (history to 2025-10-01) | Load 2 (October delta) |
+|---|---|---|
+| Files → rows landed by Snowpipe | 5 files, 1,035,931 rows | 4 files, 111,949 rows |
+| Upload finished → last row in RAW | about 20 s | about 30 s |
+| `dbt build --target prod` | PASS=119, ERROR=0; 28.8 s (38 s with start-up) | PASS=119, ERROR=0; 26.9 s (34 s) |
+| Incremental MERGE rows (usage / events / payments) | full backfill | 98,077 / 6,775 / 5,322 |
+| SCD2 snapshot | versions opened | 1,775 changed profiles |
+
+**Parity with DuckDB.** Every fact, dimension and cohort mart has the same row count as the
+local run (990,063 usage rows, 78,976 events, 58,423 payments, 20,411 customer versions,
+253 cohort rows), and net revenue matches to the cent (USD 1,337,461.42).
+
+**Governance, checked live** (`make sf-verify`, same query under each role, secondary roles off):
+
+| Role | Customer versions visible | GDPR-scope rows | Email | First name |
+|---|---|---|---|---|
+| ANALYST | 12,259 | 0 | `*****@mail.example` | SHA-256 pseudonym |
+| ANALYST_EU | 20,408 | 8,149 | `*****@mail.example` | SHA-256 pseudonym |
+| PII_READER | 20,408 | 8,149 | clear | clear |
+
+ANALYST gets "not authorized" on `ANALYTICS.STAGING` and on the `RAW` database.
+
+**Cost.** Both builds plus all load and verification queries used about 0.16 warehouse
+credits. Resource monitors cap the trial at 20 (transform), 5 (BI) and 40 (account) credits
+a month.
+
 ## Known gaps
 
-- Snowflake and AWS code has not been applied to a live account; masking, row access,
-  Snowpipe and clustering behaviour are therefore unverified here.
-- CI for pull requests builds on DuckDB, so Snowflake-only features are not exercised until the
-  (disabled by default) deploy job.
+- Data volume on Snowflake is small (about 1.1M rows), so clustering and warehouse sizing
+  are configured but their effect on pruning is not measurable at this size.
+- CI for pull requests builds on DuckDB, so Snowflake-only features are exercised only by the
+  deploy and scheduled prod jobs, which are off until the GitHub secrets are added.
+- Terraform state is local and the provisioning user has ACCOUNTADMIN; see the hardening list
+  in the runbook.
 - FX rates are a static seed; a real deployment would load daily rates.

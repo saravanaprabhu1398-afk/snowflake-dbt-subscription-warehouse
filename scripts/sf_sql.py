@@ -18,6 +18,7 @@ import os
 import sys
 
 import snowflake.connector
+import snowflake.connector.errors
 
 
 def connect(role: str, warehouse: str | None):
@@ -70,6 +71,8 @@ def main() -> None:
             first_line = " ".join(cur.query.split())[:110]
             print(f"> {first_line}")
             show(cur, args.max_rows)
+    except snowflake.connector.errors.ProgrammingError as exc:
+        sys.exit(f"SQL error: {exc.msg} (query id {exc.sfqid})")
     finally:
         conn.close()
 

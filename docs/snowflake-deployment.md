@@ -51,12 +51,24 @@ These involve credentials, so they are yours, not the automation's.
    chmod 600 *.p8
    ```
 
-2. **Register the admin public key** on your own user. In Snowsight, open a worksheet as
-   ACCOUNTADMIN and run (paste the body of `admin.pub` without the BEGIN/END lines):
+2. **Register the admin public key** on a dedicated admin service user. In Snowsight open a
+   SQL worksheet / SQL file (the **+** button at the top of the sidebar, or Workspaces) with
+   role ACCOUNTADMIN, paste the body of `admin.pub` (no BEGIN/END lines) and run:
 
    ```sql
-   alter user <YOUR_USER> set rsa_public_key = 'MIIBIjANBgkq...';
+   create user SVC_ADMIN type = service default_role = ACCOUNTADMIN
+     rsa_public_key = 'MIIBIjANBgkq...' comment = 'Terraform + setup SQL. Key-pair only.';
+   grant role ACCOUNTADMIN to user SVC_ADMIN;
+   desc user SVC_ADMIN;   -- RSA_PUBLIC_KEY_FP must equal the local fingerprint below
    ```
+
+   ```bash
+   echo "SHA256:$(openssl rsa -pubin -in ~/.snowflake/keys/admin.pub -outform DER | openssl dgst -sha256 -binary | openssl enc -base64)"
+   ```
+
+   Why not your own login: key-pair auth sends the user name upper-cased, so a sign-up name
+   like `first.last` (lower case, dots) fails with "JWT token is invalid". A service user
+   with a plain upper-case name also keeps automation off a human account.
 
    Terraform registers `svc_dbt.pub` on the `SVC_DBT` service user itself.
 
@@ -79,7 +91,7 @@ These involve credentials, so they are yours, not the automation's.
 make sf-setup          # dbt-snowflake into .venv
 make sf-check          # account, region, AWS account id
 make tf-init
-make tf-plan           # review: ~60 resources, nothing destroyed
+make tf-plan           # review: 75 resources, nothing destroyed
 make tf-apply          # applies exactly the reviewed plan
 make sf-governance     # tags, policies, erasure procedure + task, account monitor
 ```
