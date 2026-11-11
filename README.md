@@ -176,6 +176,10 @@ local run (990,063 usage rows, 78,976 events, 58,423 payments, 20,411 customer v
 
 ANALYST gets "not authorized" on `ANALYTICS.STAGING` and on the `RAW` database.
 
+**Scheduled runs.** `.github/workflows/prod-run.yml` builds prod daily at 06:15 UTC as
+`SVC_DBT` (key in a GitHub environment secret). First run on GitHub Actions (2026-11-11):
+`dbt build` PASS=119, ERROR=0, source freshness 4/4 PASS, job time 1 min 25 s.
+
 **Cost.** Both builds plus all load and verification queries used about 0.16 warehouse
 credits. Resource monitors cap the trial at 20 (transform), 5 (BI) and 40 (account) credits
 a month.
@@ -185,7 +189,7 @@ a month.
 - Data volume on Snowflake is small (about 1.1M rows), so clustering and warehouse sizing
   are configured but their effect on pruning is not measurable at this size.
 - CI for pull requests builds on DuckDB, so Snowflake-only features are exercised only by the
-  deploy and scheduled prod jobs, which are off until the GitHub secrets are added.
+  `deploy-snowflake` job on merges to `main` and the daily `prod-run` workflow.
 - Terraform state is local and the provisioning user has ACCOUNTADMIN; see the hardening list
   in the runbook.
 - FX rates are a static seed; a real deployment would load daily rates.
