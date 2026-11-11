@@ -35,7 +35,7 @@ A Streamlit app over the marts ([dashboard/](dashboard/app.py)): KPIs for the la
 growth, a cohort retention heatmap, cumulative LTV curves, trial conversion by channel, and
 feature adoption and engagement versus churn. The same code reads the local DuckDB build
 (`make dashboard`) or the live Snowflake marts (`make sf-dashboard`); install it with
-`.venv/bin/pip install -r dashboard/requirements.txt`.
+`make dashboard-setup`.
 
 ![Subscription analytics dashboard, reading the live Snowflake marts](docs/images/dashboard.png)
 

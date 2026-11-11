@@ -128,7 +128,10 @@ airflow-status:
 	$(AIRFLOW_SCHED) airflow dags list-runs subscription_warehouse_daily -o plain
 
 # --- Dashboard (Streamlit over the marts) ---------------------------------------------------
-.PHONY: dashboard sf-dashboard dashboard-test
+.PHONY: dashboard-setup dashboard sf-dashboard dashboard-test
+
+dashboard-setup:
+	uv pip install --python $(PY) -r dashboard/requirements.txt
 
 dashboard:  ## local DuckDB build (run `make build` first)
 	.venv/bin/streamlit run dashboard/app.py
