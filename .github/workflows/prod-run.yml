@@ -1,0 +1,69 @@
+name: prod-run
+
+# Scheduled production build on Snowflake: dbt build (incremental facts, SCD2 snapshot,
+# tests) and source freshness. Off unless the repo variable SNOWFLAKE_DEPLOY_ENABLED is
+# 'true' and the `production` environment has these secrets:
+#   SNOWFLAKE_ACCOUNT      orgname-accountname
+#   SNOWFLAKE_PRIVATE_KEY  PEM private key of SVC_DBT (key-pair auth, no password)
+# Cost on an XSMALL warehouse: about a minute of compute per run.
+
+on:
+  schedule:
+    - cron: "15 6 * * *"   # daily 06:15 UTC, after the overnight landing files
+  workflow_dispatch:
+    inputs:
+      full_refresh:
+        description: "Rebuild incremental models from scratch"
+        type: boolean
+        default: false
+
+concurrency:
+  group: prod-run
+  cancel-in-progress: false   # never interrupt a MERGE half-way
+
+jobs:
+  dbt-prod:
+    if: vars.SNOWFLAKE_DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 30
+    env:
+      DBT_PROFILES_DIR: .
+      SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+      SNOWFLAKE_USER: SVC_DBT
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.3
+      - name: Install
+        run: uv venv --python 3.12 .venv && uv pip install --python .venv/bin/python -r requirements-snowflake.txt
+      - name: Write key
+        env:
+          KEY: ${{ secrets.SNOWFLAKE_PRIVATE_KEY }}
+        run: |
+          umask 077
+          printf '%s\n' "$KEY" > "$RUNNER_TEMP/svc_dbt.p8"
+          echo "SNOWFLAKE_PRIVATE_KEY_PATH=$RUNNER_TEMP/svc_dbt.p8" >> "$GITHUB_ENV"
+      - name: dbt deps
+        run: .venv/bin/dbt deps --target prod
+      - name: dbt build
+        run: |
+          .venv/bin/dbt build --target prod ${{ inputs.full_refresh && '--full-refresh' || '' }}
+      # Reported, not fatal: in this portfolio setup no producer lands files every day.
+      - name: Source freshness
+        continue-on-error: true
+        run: .venv/bin/dbt source freshness --target prod
+      - name: Keep run artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dbt-prod-run-${{ github.run_id }}
+          path: |
+            target/run_results.json
+            target/manifest.json
+            target/sources.json
+            logs/dbt.log
+          retention-days: 14
+          if-no-files-found: ignore
+      - name: Remove key
+        if: always()
+        run: rm -f "$SNOWFLAKE_PRIVATE_KEY_PATH"

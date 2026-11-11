@@ -13,3 +13,7 @@ terraform/*.tfvars
 .DS_Store
 __pycache__/
 *.p8
+.env.snowflake
+terraform/tfplan
+*.pem
+*.pub

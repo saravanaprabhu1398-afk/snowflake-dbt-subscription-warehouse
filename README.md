@@ -73,12 +73,13 @@ To check the incremental path against a one-shot build:
 rm -f data/ci.duckdb && .venv/bin/dbt build --profiles-dir . --target ci && .venv/bin/python scripts/compare_replay.py
 ```
 
-### Running on Snowflake
+### Running on Snowflake + AWS
 
-1. Apply `terraform/` (or run `snowflake/00`–`02` by hand), then `snowflake/04_governance.sql`.
-2. `uv pip install --python .venv/bin/python dbt-snowflake`
-3. Export `SNOWFLAKE_ACCOUNT`, `SNOWFLAKE_USER`, `SNOWFLAKE_PRIVATE_KEY_PATH` (key-pair auth; no
-   secrets live in this repo) and run `dbt build --profiles-dir . --target snowflake`.
+[docs/snowflake-deployment.md](docs/snowflake-deployment.md) is the runbook: key-pair setup,
+`make tf-plan` / `make tf-apply` (S3, KMS, IAM, storage integration, RAW tables, Snowpipe,
+warehouses, monitors, roles, grants, the `SVC_DBT` service user), `make sf-governance`, then
+`make sf-upload` + `make sf-build` per load, `make sf-verify` for masking/row access, and a
+scheduled GitHub Actions prod run. Trial-sized settings are in `terraform/example.tfvars`.
 
 On Snowflake, sources resolve to `RAW.LANDING.*`, facts get `cluster_by`, heavy models run on
 `TRANSFORM_WH_M` in prod, every statement carries a JSON query tag, and `dim_customer` gets its
@@ -154,4 +155,3 @@ The jump at month 12 is annual plans renewing.
 - CI for pull requests builds on DuckDB, so Snowflake-only features are not exercised until the
   (disabled by default) deploy job.
 - FX rates are a static seed; a real deployment would load daily rates.
-- The GitHub Actions workflow has not been run yet (no remote configured).

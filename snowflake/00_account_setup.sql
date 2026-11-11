@@ -2,6 +2,7 @@
 -- 00 Account setup: databases, roles, warehouses per workload, resource monitors.
 -- Run as SYSADMIN / SECURITYADMIN / ACCOUNTADMIN where noted. Terraform in
 -- terraform/ manages the same objects; this file is the readable reference.
+-- Do not run it on an account deployed with Terraform (it would fight Terraform's state).
 -- =============================================================================
 
 use role sysadmin;

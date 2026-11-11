@@ -8,7 +8,8 @@ sources:
     schema: landing
     loader: snowpipe
     config:
-      loaded_at_field: "cast(_loaded_at as timestamp)"
+      # Snowflake: when Snowpipe actually ingested the row. DuckDB: the producer's load timestamp.
+      loaded_at_field: "{{ '_ingested_at' if target.type == 'snowflake' else 'cast(_loaded_at as timestamp)' }}"
       freshness:
         warn_after: {count: 24, period: hour}
         error_after: {count: 48, period: hour}

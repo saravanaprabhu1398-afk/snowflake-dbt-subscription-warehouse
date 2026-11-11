@@ -1,3 +1,5 @@
+-- RAW tables and pipes are deployed by Terraform (terraform/snowflake.tf). This file is the
+-- readable SQL reference plus the backfill and monitoring queries.
 -- =============================================================================
 -- 02 RAW tables, one-off backfill with COPY INTO, continuous load with Snowpipe.
 -- Raw columns stay VARCHAR (schema-on-read); dbt staging casts and dedups.

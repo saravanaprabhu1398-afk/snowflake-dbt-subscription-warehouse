@@ -7,7 +7,8 @@ locals {
 
 # ---------------------------------------------------------------- landing bucket
 resource "aws_s3_bucket" "landing" {
-  bucket = var.landing_bucket_name
+  bucket        = var.landing_bucket_name
+  force_destroy = var.force_destroy_bucket
 }
 
 resource "aws_s3_bucket_public_access_block" "landing" {
@@ -135,7 +136,7 @@ resource "aws_s3_bucket_notification" "snowpipe" {
   bucket = aws_s3_bucket.landing.id
 
   dynamic "queue" {
-    for_each = toset(var.feeds)
+    for_each = toset(keys(local.raw_tables))
     content {
       id            = "snowpipe-${queue.value}"
       queue_arn     = snowflake_pipe.feed[queue.value].show_output[0].notification_channel

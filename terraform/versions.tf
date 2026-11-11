@@ -30,14 +30,29 @@ provider "aws" {
   }
 }
 
-# Credentials from env: SNOWFLAKE_ORGANIZATION_NAME, SNOWFLAKE_ACCOUNT_NAME, SNOWFLAKE_USER,
-# SNOWFLAKE_AUTHENTICATOR=SNOWFLAKE_JWT, SNOWFLAKE_PRIVATE_KEY. Nothing in this repo.
-provider "snowflake" {
-  role = "ACCOUNTADMIN"
-  preview_features_enabled = [
+# Credentials come from the environment, never from this repo:
+#   SNOWFLAKE_ORGANIZATION_NAME, SNOWFLAKE_ACCOUNT_NAME, SNOWFLAKE_USER,
+#   SNOWFLAKE_AUTHENTICATOR=SNOWFLAKE_JWT, SNOWFLAKE_PRIVATE_KEY (PEM contents).
+# `make tf-plan` / `make tf-apply` export these from the variables in docs/snowflake-deployment.md.
+locals {
+  snowflake_preview_features = [
     "snowflake_stage_external_s3_resource",
     "snowflake_pipe_resource",
     "snowflake_storage_integration_aws_resource",
     "snowflake_file_format_parquet_resource",
+    "snowflake_table_resource",
   ]
+}
+
+# Default provider: SYSADMIN owns databases, schemas, RAW tables, stage, pipes.
+provider "snowflake" {
+  role                     = "SYSADMIN"
+  preview_features_enabled = local.snowflake_preview_features
+}
+
+# ACCOUNTADMIN only for what requires it: integration, monitors, warehouses, roles, users, grants.
+provider "snowflake" {
+  alias                    = "admin"
+  role                     = "ACCOUNTADMIN"
+  preview_features_enabled = local.snowflake_preview_features
 }

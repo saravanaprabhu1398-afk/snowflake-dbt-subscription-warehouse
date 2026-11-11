@@ -1,3 +1,4 @@
+-- Deployed by Terraform (terraform/snowflake.tf, terraform/aws.tf). Kept as the readable SQL reference.
 -- =============================================================================
 -- 01 External stage over the S3 landing zone.
 -- Layout written by the producers (and by generator/generate.py locally):

@@ -38,3 +38,68 @@ lint:
 
 clean:
 	rm -rf target dbt_packages logs data/*.duckdb
+
+# ----------------------------------------------------------------------------- Snowflake + AWS
+# Settings come from .env.snowflake (copy .env.snowflake.example). Credentials are key files
+# on your machine; nothing secret is passed on the command line or stored in the repo.
+# Runbook: docs/snowflake-deployment.md
+-include .env.snowflake
+export SNOWFLAKE_ORGANIZATION_NAME SNOWFLAKE_ACCOUNT_NAME AWS_PROFILE
+
+SF_ACCOUNT = $(SNOWFLAKE_ORGANIZATION_NAME)-$(SNOWFLAKE_ACCOUNT_NAME)
+AS_ADMIN   = SNOWFLAKE_ACCOUNT=$(SF_ACCOUNT) SNOWFLAKE_USER=$(SF_ADMIN_USER) SNOWFLAKE_PRIVATE_KEY_PATH=$(SF_ADMIN_KEY_PATH)
+AS_DBT     = SNOWFLAKE_ACCOUNT=$(SF_ACCOUNT) SNOWFLAKE_USER=SVC_DBT SNOWFLAKE_PRIVATE_KEY_PATH=$(SF_DBT_KEY_PATH)
+TF_ENV     = TF_VAR_admin_user=$(SF_ADMIN_USER) SNOWFLAKE_USER=$(SF_ADMIN_USER) SNOWFLAKE_AUTHENTICATOR=SNOWFLAKE_JWT SNOWFLAKE_PRIVATE_KEY="$$(cat $(SF_ADMIN_KEY_PATH))"
+SF_SQL     = $(PY) scripts/sf_sql.py
+PROD       = --profiles-dir . --target prod
+
+.PHONY: sf-setup sf-check tf-init tf-plan tf-apply tf-destroy sf-governance sf-upload sf-load-status \
+        sf-build sf-freshness sf-verify sf-cost
+
+sf-setup:
+	uv pip install --python $(PY) -r requirements-snowflake.txt
+
+# Who/where am I? Region must match aws_region in terraform.tfvars.
+sf-check:
+	$(AS_ADMIN) $(SF_SQL) --role ACCOUNTADMIN --warehouse "" --query \
+	  "select current_organization_name() as org, current_account_name() as account, current_region() as region, current_user() as user_name, current_version() as version"
+	aws sts get-caller-identity --query Account --output text
+
+tf-init:
+	cd terraform && terraform init -input=false
+
+tf-plan:
+	cd terraform && $(TF_ENV) terraform plan -input=false -out=tfplan
+
+# Applies exactly the plan you reviewed with tf-plan.
+tf-apply:
+	cd terraform && $(TF_ENV) terraform apply -input=false tfplan
+
+tf-destroy:
+	cd terraform && $(TF_ENV) terraform destroy -input=false
+
+sf-governance:
+	$(AS_ADMIN) $(SF_SQL) --role ACCOUNTADMIN --file snowflake/04_governance.sql
+	$(AS_ADMIN) $(SF_SQL) --role ACCOUNTADMIN --file snowflake/06_account_guardrails.sql
+
+# make sf-upload LOAD_DATE=2025-10-01   (then LOAD_DATE=2025-11-01 for the second load)
+sf-upload:
+	scripts/upload_landing.sh $(LANDING_BUCKET) $(LOAD_DATE)
+
+sf-load-status:
+	$(AS_ADMIN) $(SF_SQL) --role SYSADMIN --warehouse LOAD_WH --file snowflake/07_verify_load.sql
+
+sf-build:
+	$(AS_DBT) $(DBT) deps $(PROD)
+	$(AS_DBT) $(DBT) build $(PROD)
+
+sf-freshness:
+	$(AS_DBT) $(DBT) source freshness $(PROD)
+
+# Same query under three roles: masking and row access must differ.
+sf-verify:
+	@for r in ANALYST ANALYST_EU PII_READER; do \
+	  $(AS_ADMIN) $(SF_SQL) --role $$r --warehouse BI_WH --file snowflake/08_verify_governance.sql; done
+
+sf-cost:
+	$(AS_ADMIN) $(SF_SQL) --role ACCOUNTADMIN --warehouse LOAD_WH --file snowflake/05_cost_monitoring.sql

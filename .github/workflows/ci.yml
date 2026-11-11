@@ -109,13 +109,18 @@ jobs:
     environment: production
     env:
       SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
-      SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
-      SNOWFLAKE_PRIVATE_KEY_PATH: /tmp/sf_key.p8
+      SNOWFLAKE_USER: SVC_DBT
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v10.3.3
-      - run: uv venv --python 3.12 .venv && uv pip install --python .venv/bin/python -r requirements.txt dbt-snowflake
-      - run: echo "${{ secrets.SNOWFLAKE_PRIVATE_KEY }}" > /tmp/sf_key.p8 && chmod 600 /tmp/sf_key.p8
+      - run: uv venv --python 3.12 .venv && uv pip install --python .venv/bin/python -r requirements-snowflake.txt
+      - name: Write key
+        env:
+          KEY: ${{ secrets.SNOWFLAKE_PRIVATE_KEY }}
+        run: |
+          umask 077
+          printf '%s\n' "$KEY" > "$RUNNER_TEMP/svc_dbt.p8"
+          echo "SNOWFLAKE_PRIVATE_KEY_PATH=$RUNNER_TEMP/svc_dbt.p8" >> "$GITHUB_ENV"
       - uses: dawidd6/action-download-artifact@v6
         continue-on-error: true
         with:

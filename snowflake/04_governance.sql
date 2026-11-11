@@ -174,6 +174,9 @@ as
     end;
     $$;
 
+-- Tasks are created suspended. Daily on an XSMALL warehouse, ~1 minute.
+alter task governance.privacy.process_erasure_requests resume;
+
 -- Audit: who read PII columns in the last 7 days (Enterprise edition ACCESS_HISTORY).
 select
     ah.query_start_time,
