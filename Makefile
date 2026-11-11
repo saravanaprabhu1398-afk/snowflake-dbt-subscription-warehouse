@@ -103,3 +103,26 @@ sf-verify:
 
 sf-cost:
 	$(AS_ADMIN) $(SF_SQL) --role ACCOUNTADMIN --warehouse LOAD_WH --file snowflake/05_cost_monitoring.sql
+
+# --- Airflow + Cosmos orchestration (local, Astro CLI + Docker) ---------------------------
+# See orchestration/README.md. The DAG waits for Snowpipe, then runs dbt node by node.
+AIRFLOW_SCHED = docker exec $$(docker ps -qf 'name=subscription-warehouse-orchestration.*-scheduler')
+LOAD_DATE ?= 2025-11-01
+
+.PHONY: airflow-start airflow-stop airflow-test airflow-run airflow-status
+
+airflow-start:
+	cd orchestration && astro dev start
+
+airflow-stop:
+	cd orchestration && astro dev stop
+
+airflow-test:
+	$(AIRFLOW_SCHED) bash -c 'cd /usr/local/airflow && python -m pytest -q tests'
+
+airflow-run:
+	$(AIRFLOW_SCHED) airflow dags trigger subscription_warehouse_daily \
+	  -r manual_load_$(subst -,_,$(LOAD_DATE))_$$(date +%s) -c '{"load_date": "$(LOAD_DATE)"}'
+
+airflow-status:
+	$(AIRFLOW_SCHED) airflow dags list-runs subscription_warehouse_daily -o plain

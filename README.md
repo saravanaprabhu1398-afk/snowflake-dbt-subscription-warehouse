@@ -23,6 +23,7 @@ flowchart LR
     STG --> INT[intermediate] --> CORE
     CORE --> MARTS[subscription + product marts] --> BI[Dashboards / Finance / Product]
     GOV[GOVERNANCE: tags, masking, row access, erasure] -.-> CORE
+    AF{{"Airflow + Cosmos: wait for Snowpipe, then dbt per node"}} -. orchestrates .-> STG
     S3 -. local / CI: dbt-duckdb reads parquet directly .-> STG
 ```
 
@@ -44,6 +45,7 @@ More detail, including the local path and warehouse layout: [docs/architecture.m
 | `snowflake/` | Account setup (warehouses, monitors, roles), storage integration + stage, RAW tables + COPY INTO + Snowpipe, performance checks, governance, cost monitoring. |
 | `terraform/` | AWS S3 (KMS, versioning, lifecycle), IAM role for Snowflake, S3→Snowpipe notifications; Snowflake databases, warehouses, resource monitors, roles, storage integration, stage, pipes. |
 | `docs/` | [RFC-001](docs/rfc-001-subscription-warehouse.md), [performance & cost](docs/snowflake-performance-and-cost.md), [governance (GDPR + PCI-DSS)](docs/governance.md), benchmarks. |
+| `orchestration/` | Airflow (Astro Runtime 3.3) DAG with Astronomer Cosmos: a sensor that waits until Snowpipe has loaded the day's partition, the dbt project as one task per node with tests after each model, failure alerts to a webhook, and a run summary. [README](orchestration/README.md). |
 | `.github/workflows/ci.yml` | sqlfluff + ruff, slim `dbt build` on DuckDB for PRs, full build + incremental replay + freshness + docs on `main`, terraform validate, gated Snowflake deploy. |
 
 ## Quick start (local, no Snowflake)
@@ -180,6 +182,13 @@ ANALYST gets "not authorized" on `ANALYTICS.STAGING` and on the `RAW` database.
 `SVC_DBT` (key in a GitHub environment secret). First run on GitHub Actions (2026-11-11):
 `dbt build` PASS=119, ERROR=0, source freshness 4/4 PASS, job time 1 min 25 s.
 
+**Orchestrated run (Airflow + Cosmos).** The same prod build as a local Airflow DAG
+([orchestration/](orchestration/README.md)) for `load_date=2025-11-01`: the sensor confirmed
+all four feeds in Snowpipe's copy history on its first poke (20 s), then 57 tasks succeeded
+on the first try in 4 min 6 s. The partition was already merged, so the run was also a replay:
+fact and dimension counts stayed identical, so the incremental MERGE added no duplicates. The
+first trigger failed on a connector setting, and the failure alert fired as designed.
+
 **Cost.** Both builds plus all load and verification queries used about 0.16 warehouse
 credits. Resource monitors cap the trial at 20 (transform), 5 (BI) and 40 (account) credits
 a month.
@@ -190,6 +199,9 @@ a month.
   are configured but their effect on pruning is not measurable at this size.
 - CI for pull requests builds on DuckDB, so Snowflake-only features are exercised only by the
   `deploy-snowflake` job on merges to `main` and the daily `prod-run` workflow.
+- Airflow runs locally (Docker, Astro CLI); the hosted daily schedule is the GitHub Actions
+  workflow. Through Cosmos a run takes about 4 minutes against 27 s for one `dbt build`,
+  the price of per-model tasks and retries.
 - Terraform state is local and the provisioning user has ACCOUNTADMIN; see the hardening list
   in the runbook.
 - FX rates are a static seed; a real deployment would load daily rates.

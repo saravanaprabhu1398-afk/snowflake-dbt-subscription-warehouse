@@ -1,0 +1,12 @@
+# Local-only wiring (astro dev start). The dbt project (repo root) is mounted read-only;
+# Cosmos copies what it needs to a temp dir per task. The SVC_DBT private key is mounted
+# read-only from your machine and never enters the image.
+x-dbt-mounts: &dbt-mounts
+  volumes:
+    - ../:/usr/local/airflow/dbt/subscription_warehouse:ro
+    - ${HOME}/.snowflake/keys/svc_dbt.p8:/usr/local/airflow/secrets/svc_dbt.p8:ro
+
+services:
+  scheduler: *dbt-mounts
+  dag-processor: *dbt-mounts
+  triggerer: *dbt-mounts

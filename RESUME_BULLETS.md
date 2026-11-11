@@ -22,3 +22,8 @@ results"), at 20k synthetic customers (~1.1M rows).
   erased PII reappears), verified live in Snowflake: the same query returns 12,259 rows with
   masked emails for ANALYST, 20,408 masked for ANALYST_EU and clear PII only for PII_READER; wrote an RFC (design, alternatives, rollout), and set up GitHub
   Actions CI with sqlfluff and slim `state:modified` dbt builds.
+- Orchestrated the daily prod run in Airflow 3 with Astronomer Cosmos (one task per dbt
+  model with tests after each, retries with backoff, webhook failure alerts): a
+  reschedule-mode sensor waits on Snowpipe's copy history and pipe backlog, using no warehouse
+  while it waits; the local run against Snowflake completed all 57 tasks on the first try in
+  about 4 minutes, and replaying an already-loaded partition left every fact count unchanged.

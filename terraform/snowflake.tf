@@ -232,6 +232,20 @@ resource "snowflake_grant_privileges_to_account_role" "transformer_raw_select_fu
   }
 }
 
+# The orchestrator (Airflow, running as SVC_DBT) checks SYSTEM$PIPE_STATUS before building.
+resource "snowflake_grant_privileges_to_account_role" "transformer_pipe_monitor" {
+  provider          = snowflake.admin
+  account_role_name = snowflake_account_role.this["TRANSFORMER"].name
+  privileges        = ["MONITOR"]
+  on_schema_object {
+    all {
+      object_type_plural = "PIPES"
+      in_schema          = local.landing_fq
+    }
+  }
+  depends_on = [snowflake_pipe.feed]
+}
+
 resource "snowflake_grant_privileges_to_account_role" "loader_raw_insert" {
   provider          = snowflake.admin
   account_role_name = snowflake_account_role.this["LOADER"].name

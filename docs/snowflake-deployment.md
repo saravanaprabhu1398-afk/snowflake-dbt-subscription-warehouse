@@ -122,6 +122,21 @@ make sf-cost                              # credits by warehouse, model, pipe
 
 The same switch enables the `deploy-snowflake` job in `ci.yml` on merges to `main`.
 
+## Orchestrated runs (Airflow + Cosmos, local)
+
+`orchestration/` runs the same build as an Airflow DAG that first waits for Snowpipe.
+The sensor needs `MONITOR` on the pipes for `SYSTEM$PIPE_STATUS`; Terraform grants it to
+TRANSFORMER (`transformer_pipe_monitor`).
+
+```bash
+cp orchestration/.env.example orchestration/.env   # account name; key is mounted read-only
+make airflow-start
+make airflow-run LOAD_DATE=2025-11-01
+make airflow-status
+```
+
+Details and results: [orchestration/README.md](../orchestration/README.md).
+
 ## Production hardening not done on the trial
 
 - Terraform state is local (`terraform/terraform.tfstate`, git-ignored). Use the S3 backend
