@@ -29,6 +29,20 @@ flowchart LR
 
 More detail, including the local path and warehouse layout: [docs/architecture.md](docs/architecture.md).
 
+## Dashboard
+
+A Streamlit app over the marts ([dashboard/](dashboard/app.py)): KPIs for the latest month,
+growth, a cohort retention heatmap, cumulative LTV curves, trial conversion by channel, and
+feature adoption and engagement versus churn. The same code reads the local DuckDB build
+(`make dashboard`) or the live Snowflake marts (`make sf-dashboard`); install it with
+`.venv/bin/pip install -r dashboard/requirements.txt`.
+
+![Subscription analytics dashboard, reading the live Snowflake marts](docs/images/dashboard.png)
+
+Read from Snowflake on 2026-11-11, all six datasets behind the page matched the DuckDB build
+row for row; loading them took 3.6 s. The month-12 step in LTV and the drop in retention after
+month 12 are annual plans renewing or lapsing.
+
 ## What's in the repo
 
 | Path | Contents |
@@ -45,6 +59,7 @@ More detail, including the local path and warehouse layout: [docs/architecture.m
 | `snowflake/` | Account setup (warehouses, monitors, roles), storage integration + stage, RAW tables + COPY INTO + Snowpipe, performance checks, governance, cost monitoring. |
 | `terraform/` | AWS S3 (KMS, versioning, lifecycle), IAM role for Snowflake, S3→Snowpipe notifications; Snowflake databases, warehouses, resource monitors, roles, storage integration, stage, pipes. |
 | `docs/` | [RFC-001](docs/rfc-001-subscription-warehouse.md), [performance & cost](docs/snowflake-performance-and-cost.md), [governance (GDPR + PCI-DSS)](docs/governance.md), benchmarks. |
+| `dashboard/` | Streamlit + Altair dashboard over the marts; one SQL set for DuckDB and Snowflake; metric unit tests and a headless render test. |
 | `orchestration/` | Airflow (Astro Runtime 3.3) DAG with Astronomer Cosmos: a sensor that waits until Snowpipe has loaded the day's partition, the dbt project as one task per node with tests after each model, failure alerts to a webhook, and a run summary. [README](orchestration/README.md). |
 | `.github/workflows/ci.yml` | sqlfluff + ruff, slim `dbt build` on DuckDB for PRs, full build + incremental replay + freshness + docs on `main`, terraform validate, gated Snowflake deploy. |
 
@@ -202,6 +217,8 @@ a month.
 - Airflow runs locally (Docker, Astro CLI); the hosted daily schedule is the GitHub Actions
   workflow. Through Cosmos a run takes about 4 minutes against 27 s for one `dbt build`,
   the price of per-model tasks and retries.
+- The dashboard runs locally. On Snowflake it reads as `SVC_DBT` (TRANSFORMER); a real
+  deployment would use a BI service user with the ANALYST role, or Streamlit in Snowflake.
 - Terraform state is local and the provisioning user has ACCOUNTADMIN; see the hardening list
   in the runbook.
 - FX rates are a static seed; a real deployment would load daily rates.

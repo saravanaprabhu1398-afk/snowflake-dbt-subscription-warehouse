@@ -126,3 +126,15 @@ airflow-run:
 
 airflow-status:
 	$(AIRFLOW_SCHED) airflow dags list-runs subscription_warehouse_daily -o plain
+
+# --- Dashboard (Streamlit over the marts) ---------------------------------------------------
+.PHONY: dashboard sf-dashboard dashboard-test
+
+dashboard:  ## local DuckDB build (run `make build` first)
+	.venv/bin/streamlit run dashboard/app.py
+
+sf-dashboard:  ## live Snowflake marts, read as SVC_DBT
+	$(AS_DBT) DASHBOARD_BACKEND=snowflake .venv/bin/streamlit run dashboard/app.py
+
+dashboard-test:
+	.venv/bin/python -m pytest -q dashboard/tests
